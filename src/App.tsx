@@ -33,6 +33,8 @@ import {
 } from "lucide-react";
 import { Navbar } from "./components/Navbar.tsx";
 import { Product, Seller, Review, Order, OrderItem } from "./types.ts";
+import appLogoUrl from "../assets/app-logo.png";
+import freshNestLandingUrl from "../assets/freshnest-landing.png";
 
 type ChatMessage = {
   role: "assistant" | "user";
@@ -919,7 +921,7 @@ export default function App() {
                 onClick={() => setLandingPage("home")}
                 className="flex items-center gap-3"
               >
-                <img src="/assets/app-logo.png" alt="FreshNest logo" className="h-11 w-11 rounded-2xl shadow-sm" />
+                <img src={appLogoUrl} alt="FreshNest logo" className="h-11 w-11 rounded-2xl shadow-sm" />
                 <div className="text-left">
                   <span className="block text-lg font-black leading-none tracking-tight">FreshNest</span>
                   <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-orange-600">Fresh local marketplace</span>
@@ -962,7 +964,7 @@ export default function App() {
               <>
                 <section className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
                   <img
-                    src="/assets/freshnest-landing.png"
+                    src={freshNestLandingUrl}
                     alt="FreshNest fresh local market collage"
                     className="absolute inset-0 h-full w-full object-cover object-center"
                   />
@@ -1029,7 +1031,7 @@ export default function App() {
                     See how it works
                   </button>
                 </div>
-                <img src="/assets/freshnest-landing.png" alt="FreshNest products" className="rounded-3xl border border-orange-100 shadow-xl" />
+                <img src={freshNestLandingUrl} alt="FreshNest products" className="rounded-3xl border border-orange-100 shadow-xl" />
               </section>
             )}
 
@@ -1098,7 +1100,7 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-2">
               <div className="bg-stone-950 p-8 text-white">
                 <img
-                  src="/assets/app-logo.png"
+                  src={appLogoUrl}
                   alt="FreshNest logo"
                   className="h-16 w-16 rounded-2xl bg-white shadow-sm"
                 />
@@ -1207,7 +1209,7 @@ export default function App() {
             <section className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-[#fffaf1]">
               <div className="relative min-h-[calc(100vh-4rem)]">
                 <img
-                  src="/assets/freshnest-landing.png"
+                  src={freshNestLandingUrl}
                   alt="FreshNest fresh local marketplace collage"
                   className="absolute inset-0 h-full w-full object-cover object-center"
                 />

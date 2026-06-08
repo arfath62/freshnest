@@ -1,4 +1,5 @@
 import { ShoppingBag, Sparkles, MapPin, Search } from "lucide-react";
+import appLogoUrl from "../../assets/app-logo.png";
 
 interface NavbarProps {
   currentRole: "buyer" | "seller";
@@ -30,7 +31,7 @@ export function Navbar({
         {/* Logo and Brand */}
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setSearchQuery(""); setSelectedCategory("All"); setRole("buyer"); }}>
           <img
-            src="/assets/app-logo.png"
+            src={appLogoUrl}
             alt="FreshNest logo"
             className="h-12 w-12 rounded-2xl shadow-sm shadow-rose-200/70"
           />
