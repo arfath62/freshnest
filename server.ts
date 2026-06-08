@@ -22,6 +22,10 @@ type MarketplaceDatabase = {
 
 const DATABASE_DIR = path.resolve(process.cwd(), "data");
 const DATABASE_PATH = path.join(DATABASE_DIR, "marketplace-db.json");
+const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "");
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const SUPABASE_STATE_TABLE = process.env.SUPABASE_STATE_TABLE || "marketplace_state";
+const MARKETPLACE_STATE_ID = "freshnest";
 
 // Default entries used to seed the file database on first run.
 let sellers: Seller[] = [
@@ -271,7 +275,83 @@ let reviews: Review[] = [
 
 let orders: Order[] = [];
 
-function loadDatabase() {
+function getCurrentDatabase(): MarketplaceDatabase {
+  return { sellers, products, reviews, orders };
+}
+
+function applyDatabase(database: Partial<MarketplaceDatabase>) {
+  sellers = Array.isArray(database.sellers) ? database.sellers : sellers;
+  products = Array.isArray(database.products) ? database.products : products;
+  reviews = Array.isArray(database.reviews) ? database.reviews : reviews;
+  orders = Array.isArray(database.orders) ? database.orders : orders;
+}
+
+function hasSupabaseDatabase() {
+  return Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
+}
+
+function getSupabaseHeaders() {
+  return {
+    apikey: SUPABASE_SERVICE_ROLE_KEY as string,
+    Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+    "Content-Type": "application/json"
+  };
+}
+
+async function loadSupabaseDatabase() {
+  if (!hasSupabaseDatabase()) return false;
+
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/${SUPABASE_STATE_TABLE}?id=eq.${MARKETPLACE_STATE_ID}&select=data`,
+    { headers: getSupabaseHeaders() }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Supabase load failed with ${response.status}: ${await response.text()}`);
+  }
+
+  const rows = await response.json() as { data?: MarketplaceDatabase }[];
+  if (rows[0]?.data) {
+    applyDatabase(rows[0].data);
+    console.log(`Loaded marketplace database from Supabase table '${SUPABASE_STATE_TABLE}'`);
+    return true;
+  }
+
+  await saveSupabaseDatabase();
+  console.log(`Seeded Supabase table '${SUPABASE_STATE_TABLE}' with default marketplace data`);
+  return true;
+}
+
+async function saveSupabaseDatabase() {
+  if (!hasSupabaseDatabase()) return false;
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_STATE_TABLE}`, {
+    method: "POST",
+    headers: {
+      ...getSupabaseHeaders(),
+      Prefer: "resolution=merge-duplicates"
+    },
+    body: JSON.stringify({
+      id: MARKETPLACE_STATE_ID,
+      data: getCurrentDatabase(),
+      updated_at: new Date().toISOString()
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Supabase save failed with ${response.status}: ${await response.text()}`);
+  }
+
+  return true;
+}
+
+async function loadDatabase() {
+  try {
+    if (await loadSupabaseDatabase()) return;
+  } catch (error) {
+    console.error("Failed to load Supabase database. Falling back to local JSON database.", error);
+  }
+
   if (!fs.existsSync(DATABASE_PATH)) {
     saveDatabase();
     return;
@@ -279,10 +359,7 @@ function loadDatabase() {
 
   try {
     const savedDatabase = JSON.parse(fs.readFileSync(DATABASE_PATH, "utf-8")) as Partial<MarketplaceDatabase>;
-    sellers = Array.isArray(savedDatabase.sellers) ? savedDatabase.sellers : sellers;
-    products = Array.isArray(savedDatabase.products) ? savedDatabase.products : products;
-    reviews = Array.isArray(savedDatabase.reviews) ? savedDatabase.reviews : reviews;
-    orders = Array.isArray(savedDatabase.orders) ? savedDatabase.orders : orders;
+    applyDatabase(savedDatabase);
     console.log(`Loaded marketplace database from ${DATABASE_PATH}`);
   } catch (error) {
     console.error("Failed to read marketplace database. Using default seed data instead.", error);
@@ -291,12 +368,12 @@ function loadDatabase() {
 
 function saveDatabase() {
   fs.mkdirSync(DATABASE_DIR, { recursive: true });
-  const database: MarketplaceDatabase = { sellers, products, reviews, orders };
-  fs.writeFileSync(DATABASE_PATH, JSON.stringify(database, null, 2));
+  fs.writeFileSync(DATABASE_PATH, JSON.stringify(getCurrentDatabase(), null, 2));
 }
 
-function persistDatabase(res: Response) {
+async function persistDatabase(res: Response) {
   try {
+    if (await saveSupabaseDatabase()) return true;
     saveDatabase();
     return true;
   } catch (error) {
@@ -305,8 +382,6 @@ function persistDatabase(res: Response) {
     return false;
   }
 }
-
-loadDatabase();
 
 // Setup Gemini Client Safely
 const api_key = process.env.GEMINI_API_KEY;
@@ -330,6 +405,8 @@ if (api_key && api_key !== "MY_GEMINI_API_KEY" && api_key.trim() !== "") {
 }
 
 async function startServer() {
+  await loadDatabase();
+
   const app = express();
   app.use(express.json({ limit: "10mb" }));
 
@@ -348,7 +425,7 @@ async function startServer() {
   });
 
   // 3. Register/Update Seller Store Profile
-  app.post("/api/sellers", (req, res) => {
+  app.post("/api/sellers", async (req, res) => {
     const data = req.body;
     let seller = sellers.find(s => s.id === data.id || s.email === data.email);
     
@@ -382,11 +459,11 @@ async function startServer() {
       };
       sellers.push(seller);
     }
-    if (!persistDatabase(res)) return;
+    if (!(await persistDatabase(res))) return;
     res.json(seller);
   });
 
-  app.delete("/api/sellers/:id", (req, res) => {
+  app.delete("/api/sellers/:id", async (req, res) => {
     const id = req.params.id;
     const seller = sellers.find(s => s.id === id);
 
@@ -402,7 +479,7 @@ async function startServer() {
     products = products.filter(product => product.sellerId !== id);
     reviews = reviews.filter(review => !sellerProductIds.includes(review.productId));
 
-    if (!persistDatabase(res)) return;
+    if (!(await persistDatabase(res))) return;
     res.json({
       deletedSellerId: id,
       deletedProductIds: sellerProductIds
@@ -410,7 +487,7 @@ async function startServer() {
   });
 
   // 4. Create/Edit product listing
-  app.post("/api/products", (req, res) => {
+  app.post("/api/products", async (req, res) => {
     const data = req.body;
     let product;
 
@@ -454,15 +531,15 @@ async function startServer() {
       };
       products.push(product);
     }
-    if (!persistDatabase(res)) return;
+    if (!(await persistDatabase(res))) return;
     res.json(product);
   });
 
   // 5. Delete a product
-  app.delete("/api/products/:id", (req, res) => {
+  app.delete("/api/products/:id", async (req, res) => {
     const id = req.params.id;
     products = products.filter(p => p.id !== id);
-    if (!persistDatabase(res)) return;
+    if (!(await persistDatabase(res))) return;
     res.json({ success: true, id });
   });
 
@@ -477,7 +554,7 @@ async function startServer() {
   });
 
   // 7. Post product review
-  app.post("/api/reviews", (req, res) => {
+  app.post("/api/reviews", async (req, res) => {
     const data = req.body;
     const newReview: Review = {
       id: `rev_${Date.now()}`,
@@ -498,12 +575,12 @@ async function startServer() {
       prod.reviewsCount = prodReviews.length;
     }
 
-    if (!persistDatabase(res)) return;
+    if (!(await persistDatabase(res))) return;
     res.json(newReview);
   });
 
   // 8. Put an order
-  app.post("/api/orders", (req, res) => {
+  app.post("/api/orders", async (req, res) => {
     const { buyerName, buyerEmail, buyerPhone, deliveryMethod, address, items, notes } = req.body;
     
     if (!items || items.length === 0) {
@@ -548,7 +625,7 @@ async function startServer() {
     };
 
     orders.push(newOrder);
-    if (!persistDatabase(res)) return;
+    if (!(await persistDatabase(res))) return;
     res.json(newOrder);
   });
 
@@ -558,13 +635,13 @@ async function startServer() {
   });
 
   // 10. Update order status
-  app.post("/api/orders/:id/status", (req, res) => {
+  app.post("/api/orders/:id/status", async (req, res) => {
     const id = req.params.id;
     const { status } = req.body;
     const order = orders.find(o => o.id === id);
     if (order) {
       order.status = status;
-      if (!persistDatabase(res)) return;
+      if (!(await persistDatabase(res))) return;
       res.json(order);
     } else {
       res.status(404).json({ error: "Order not found" });
