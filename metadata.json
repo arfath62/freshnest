@@ -1,0 +1,6 @@
+{
+  "name": "FreshNest",
+  "description": "A freshness-first local marketplace where customers can inspect FreshTrack scores before buying food, produce, handmade goods, and local products.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
