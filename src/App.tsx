@@ -33,8 +33,8 @@ import {
 } from "lucide-react";
 import { Navbar } from "./components/Navbar.tsx";
 import { Product, Seller, Review, Order, OrderItem } from "./types.ts";
-import appLogoUrl from "../assets/app-logo.png";
-import freshNestLandingUrl from "../assets/freshnest-landing.png";
+import appLogoUrl from "../assets/freshnest-logo.png";
+import freshNestLandingUrl from "../assets/freshnest-hero.png";
 
 type ChatMessage = {
   role: "assistant" | "user";

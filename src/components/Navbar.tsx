@@ -1,5 +1,5 @@
 import { ShoppingBag, Sparkles, MapPin, Search } from "lucide-react";
-import appLogoUrl from "../../assets/app-logo.png";
+import appLogoUrl from "../../assets/freshnest-logo.png";
 
 interface NavbarProps {
   currentRole: "buyer" | "seller";
