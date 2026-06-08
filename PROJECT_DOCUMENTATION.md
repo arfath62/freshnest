@@ -15,8 +15,7 @@ The frontend is a React single-page app. The backend is an Express server writte
 - Tailwind CSS through `@tailwindcss/vite`
 - Lucide React for icons
 - Google Gemini SDK for optional AI copy generation
-- Supabase-hosted JSONB database for production persistence
-- File-backed JSON database stored at `data/marketplace-db.json` as a local fallback
+- File-backed JSON database stored at `data/marketplace-db.json`
 
 ## Main Features
 
@@ -66,22 +65,19 @@ local-artisan-marketplace/
 |-- PROJECT_DOCUMENTATION.md
 |-- README.md
 |-- server.ts
-|-- supabase/
-|   `-- schema.sql
 |-- tsconfig.json
 `-- vite.config.ts
 ```
 
 ## Important Files
 
-- `server.ts`: Express backend, seeded marketplace data, API routes, Supabase/local persistence, Gemini setup, and Vite middleware.
+- `server.ts`: Express backend, seeded marketplace data, API routes, local JSON persistence, Gemini setup, and Vite middleware.
 - `src/App.tsx`: Main React application with buyer UI, seller UI, basket, checkout, forms, and API calls.
 - `src/components/Navbar.tsx`: Top navigation with buyer/seller role switch, search, categories, and basket button.
 - `src/types.ts`: Shared TypeScript interfaces for products, sellers, reviews, orders, and order items.
 - `vite.config.ts`: Vite config with React, Tailwind, and `@` alias support.
 - `.env.example`: Example environment variables.
 - `package.json`: Scripts and dependencies.
-- `supabase/schema.sql`: SQL schema for the hosted Supabase marketplace state table.
 
 ## Backend API Routes
 
@@ -161,33 +157,19 @@ npm start
 
 ## Data Storage Note
 
-The app supports Supabase persistence for production and a local JSON fallback for development.
+The app stores sellers, products, reviews, and orders in the local JSON database at `data/marketplace-db.json`. On first run, the server seeds that file from the default marketplace data in `server.ts`. After that, seller profiles, product listings, stock changes, reviews, orders, and order status updates are saved immediately.
 
-When `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are configured, the backend stores sellers, products, reviews, and orders in the Supabase `marketplace_state` table. On first run, the server seeds Supabase from the default marketplace data in `server.ts`. After that, seller profiles, product listings, stock changes, reviews, orders, and order status updates are saved immediately.
-
-If Supabase is not configured or cannot be reached, the app falls back to the local JSON database at `data/marketplace-db.json`. Product listings remain available after server restarts until the seller deletes the listing or deletes the seller profile. The local runtime database file is ignored by Git so local marketplace data is not accidentally committed.
+The local runtime database file is ignored by Git so local marketplace data is not accidentally committed.
 
 ## Environment Variables
 
 - `GEMINI_API_KEY`: Optional Gemini API key for AI-generated copy.
 - `APP_URL`: Optional app URL. In local development, use `http://localhost:3000`.
-- `SUPABASE_URL`: Supabase project URL for hosted persistence.
-- `SUPABASE_SERVICE_ROLE_KEY`: Backend-only Supabase service role key. Do not expose this in frontend code.
-- `SUPABASE_STATE_TABLE`: Optional table name. Defaults to `marketplace_state`.
-
-## Supabase Setup
-
-1. Open the Supabase SQL editor.
-2. Run the SQL in `supabase/schema.sql`.
-3. Add `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to the server environment.
-4. Restart the server.
-
-The first server start after configuration seeds the Supabase table automatically if no FreshNest row exists yet.
 
 ## Development Notes
 
 - The development server runs on port `3000`.
 - The server listens on `0.0.0.0`, so it can be accessed from the local machine at `http://localhost:3000`.
 - The frontend talks to the backend using relative `/api/...` URLs.
-- Supabase is used when configured; otherwise the local database file is created automatically on first server start.
+- The local database file is created automatically on first server start.
 - No payment integration is included; checkout creates local test orders only.

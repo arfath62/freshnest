@@ -10,7 +10,7 @@ dotenv.config({ path: ".env.local" });
 dotenv.config();
 
 // Safe import of type if running in JS bundle - using standard types
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const GEMINI_MODEL = "gemini-2.5-flash";
 
 type MarketplaceDatabase = {
@@ -22,10 +22,6 @@ type MarketplaceDatabase = {
 
 const DATABASE_DIR = path.resolve(process.cwd(), "data");
 const DATABASE_PATH = path.join(DATABASE_DIR, "marketplace-db.json");
-const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "");
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-const SUPABASE_STATE_TABLE = process.env.SUPABASE_STATE_TABLE || "marketplace_state";
-const MARKETPLACE_STATE_ID = "freshnest";
 
 // Default entries used to seed the file database on first run.
 let sellers: Seller[] = [
@@ -286,74 +282,10 @@ function applyDatabase(database: Partial<MarketplaceDatabase>) {
   orders = Array.isArray(database.orders) ? database.orders : orders;
 }
 
-function hasSupabaseDatabase() {
-  return Boolean(SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY);
-}
-
-function getSupabaseHeaders() {
-  return {
-    apikey: SUPABASE_SERVICE_ROLE_KEY as string,
-    Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-    "Content-Type": "application/json"
-  };
-}
-
-async function loadSupabaseDatabase() {
-  if (!hasSupabaseDatabase()) return false;
-
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/${SUPABASE_STATE_TABLE}?id=eq.${MARKETPLACE_STATE_ID}&select=data`,
-    { headers: getSupabaseHeaders() }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Supabase load failed with ${response.status}: ${await response.text()}`);
-  }
-
-  const rows = await response.json() as { data?: MarketplaceDatabase }[];
-  if (rows[0]?.data) {
-    applyDatabase(rows[0].data);
-    console.log(`Loaded marketplace database from Supabase table '${SUPABASE_STATE_TABLE}'`);
-    return true;
-  }
-
-  await saveSupabaseDatabase();
-  console.log(`Seeded Supabase table '${SUPABASE_STATE_TABLE}' with default marketplace data`);
-  return true;
-}
-
-async function saveSupabaseDatabase() {
-  if (!hasSupabaseDatabase()) return false;
-
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${SUPABASE_STATE_TABLE}`, {
-    method: "POST",
-    headers: {
-      ...getSupabaseHeaders(),
-      Prefer: "resolution=merge-duplicates"
-    },
-    body: JSON.stringify({
-      id: MARKETPLACE_STATE_ID,
-      data: getCurrentDatabase(),
-      updated_at: new Date().toISOString()
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error(`Supabase save failed with ${response.status}: ${await response.text()}`);
-  }
-
-  return true;
-}
-
-async function loadDatabase() {
-  try {
-    if (await loadSupabaseDatabase()) return;
-  } catch (error) {
-    console.error("Failed to load Supabase database. Falling back to local JSON database.", error);
-  }
-
+function loadDatabase() {
   if (!fs.existsSync(DATABASE_PATH)) {
     saveDatabase();
+    console.log(`Seeded local marketplace database at ${DATABASE_PATH}`);
     return;
   }
 
@@ -371,9 +303,8 @@ function saveDatabase() {
   fs.writeFileSync(DATABASE_PATH, JSON.stringify(getCurrentDatabase(), null, 2));
 }
 
-async function persistDatabase(res: Response) {
+function persistDatabase(res: Response) {
   try {
-    if (await saveSupabaseDatabase()) return true;
     saveDatabase();
     return true;
   } catch (error) {
@@ -405,7 +336,7 @@ if (api_key && api_key !== "MY_GEMINI_API_KEY" && api_key.trim() !== "") {
 }
 
 async function startServer() {
-  await loadDatabase();
+  loadDatabase();
 
   const app = express();
   app.use(express.json({ limit: "10mb" }));
@@ -459,7 +390,7 @@ async function startServer() {
       };
       sellers.push(seller);
     }
-    if (!(await persistDatabase(res))) return;
+    if (!persistDatabase(res)) return;
     res.json(seller);
   });
 
@@ -479,7 +410,7 @@ async function startServer() {
     products = products.filter(product => product.sellerId !== id);
     reviews = reviews.filter(review => !sellerProductIds.includes(review.productId));
 
-    if (!(await persistDatabase(res))) return;
+    if (!persistDatabase(res)) return;
     res.json({
       deletedSellerId: id,
       deletedProductIds: sellerProductIds
@@ -531,7 +462,7 @@ async function startServer() {
       };
       products.push(product);
     }
-    if (!(await persistDatabase(res))) return;
+    if (!persistDatabase(res)) return;
     res.json(product);
   });
 
@@ -539,7 +470,7 @@ async function startServer() {
   app.delete("/api/products/:id", async (req, res) => {
     const id = req.params.id;
     products = products.filter(p => p.id !== id);
-    if (!(await persistDatabase(res))) return;
+    if (!persistDatabase(res)) return;
     res.json({ success: true, id });
   });
 
@@ -575,7 +506,7 @@ async function startServer() {
       prod.reviewsCount = prodReviews.length;
     }
 
-    if (!(await persistDatabase(res))) return;
+    if (!persistDatabase(res)) return;
     res.json(newReview);
   });
 
@@ -625,7 +556,7 @@ async function startServer() {
     };
 
     orders.push(newOrder);
-    if (!(await persistDatabase(res))) return;
+    if (!persistDatabase(res)) return;
     res.json(newOrder);
   });
 
@@ -641,7 +572,7 @@ async function startServer() {
     const order = orders.find(o => o.id === id);
     if (order) {
       order.status = status;
-      if (!(await persistDatabase(res))) return;
+      if (!persistDatabase(res)) return;
       res.json(order);
     } else {
       res.status(404).json({ error: "Order not found" });

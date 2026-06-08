@@ -48,9 +48,7 @@ Use `npm run lint` to type-check the project. Use `npm run build` to create prod
 
 ## Database
 
-FreshNest uses Supabase for hosted persistence when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are configured. Run `supabase/schema.sql` in the Supabase SQL editor, then add those variables to your server environment.
-
-If Supabase is not configured, FreshNest creates a local JSON database at `data/marketplace-db.json` on first server start. Seller profiles, product listings, reviews, orders, stock changes, and order status updates are saved there, so listed products stay available after restarts until the seller deletes them.
+FreshNest stores marketplace data in a local JSON database at `data/marketplace-db.json`. The file is created automatically on first server start. Seller profiles, product listings, reviews, orders, stock changes, and order status updates are saved there, so listed products stay available after restarts until the seller deletes them.
 
 ## More Documentation
 
