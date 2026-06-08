@@ -46,6 +46,10 @@ npm start
 
 Use `npm run lint` to type-check the project. Use `npm run build` to create production files in `dist`, then `npm start` to run the built server.
 
+## Local Database
+
+FreshNest creates a local JSON database at `data/marketplace-db.json` on first server start. Seller profiles, product listings, reviews, orders, stock changes, and order status updates are saved there, so listed products stay available after restarts until the seller deletes them.
+
 ## More Documentation
 
 See [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md) for the full project overview, features, file structure, API routes, and setup notes.

@@ -15,7 +15,7 @@ The frontend is a React single-page app. The backend is an Express server writte
 - Tailwind CSS through `@tailwindcss/vite`
 - Lucide React for icons
 - Google Gemini SDK for optional AI copy generation
-- In-memory data storage inside `server.ts`
+- File-backed JSON database stored at `data/marketplace-db.json`
 
 ## Main Features
 
@@ -157,7 +157,9 @@ npm start
 
 ## Data Storage Note
 
-The app currently stores sellers, products, reviews, and orders in memory inside `server.ts`. This means new changes exist only while the server process is running. Restarting the server resets the data back to the default seeded marketplace entries.
+The app stores sellers, products, reviews, and orders in a local JSON database at `data/marketplace-db.json`. On first run, the server seeds this file from the default marketplace data in `server.ts`. After that, seller profiles, product listings, stock changes, reviews, orders, and order status updates are saved immediately.
+
+Product listings remain available after server restarts until the seller deletes the listing or deletes the seller profile. The runtime database file is ignored by Git so local marketplace data is not accidentally committed.
 
 ## Environment Variables
 
@@ -169,5 +171,5 @@ The app currently stores sellers, products, reviews, and orders in memory inside
 - The development server runs on port `3000`.
 - The server listens on `0.0.0.0`, so it can be accessed from the local machine at `http://localhost:3000`.
 - The frontend talks to the backend using relative `/api/...` URLs.
-- No database is required for the current version.
+- The local database file is created automatically on first server start.
 - No payment integration is included; checkout creates local test orders only.

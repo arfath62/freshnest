@@ -1,4 +1,5 @@
-import express from "express";
+import express, { type Response } from "express";
+import * as fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
@@ -12,7 +13,17 @@ dotenv.config();
 const PORT = 3000;
 const GEMINI_MODEL = "gemini-2.5-flash";
 
-// Initialize in-memory database with authentic default entries
+type MarketplaceDatabase = {
+  sellers: Seller[];
+  products: Product[];
+  reviews: Review[];
+  orders: Order[];
+};
+
+const DATABASE_DIR = path.resolve(process.cwd(), "data");
+const DATABASE_PATH = path.join(DATABASE_DIR, "marketplace-db.json");
+
+// Default entries used to seed the file database on first run.
 let sellers: Seller[] = [
   {
     id: "seller_1",
@@ -260,6 +271,43 @@ let reviews: Review[] = [
 
 let orders: Order[] = [];
 
+function loadDatabase() {
+  if (!fs.existsSync(DATABASE_PATH)) {
+    saveDatabase();
+    return;
+  }
+
+  try {
+    const savedDatabase = JSON.parse(fs.readFileSync(DATABASE_PATH, "utf-8")) as Partial<MarketplaceDatabase>;
+    sellers = Array.isArray(savedDatabase.sellers) ? savedDatabase.sellers : sellers;
+    products = Array.isArray(savedDatabase.products) ? savedDatabase.products : products;
+    reviews = Array.isArray(savedDatabase.reviews) ? savedDatabase.reviews : reviews;
+    orders = Array.isArray(savedDatabase.orders) ? savedDatabase.orders : orders;
+    console.log(`Loaded marketplace database from ${DATABASE_PATH}`);
+  } catch (error) {
+    console.error("Failed to read marketplace database. Using default seed data instead.", error);
+  }
+}
+
+function saveDatabase() {
+  fs.mkdirSync(DATABASE_DIR, { recursive: true });
+  const database: MarketplaceDatabase = { sellers, products, reviews, orders };
+  fs.writeFileSync(DATABASE_PATH, JSON.stringify(database, null, 2));
+}
+
+function persistDatabase(res: Response) {
+  try {
+    saveDatabase();
+    return true;
+  } catch (error) {
+    console.error("Failed to save marketplace database:", error);
+    res.status(500).json({ error: "Could not save marketplace data. Please try again." });
+    return false;
+  }
+}
+
+loadDatabase();
+
 // Setup Gemini Client Safely
 const api_key = process.env.GEMINI_API_KEY;
 let ai_client: any = null;
@@ -334,6 +382,7 @@ async function startServer() {
       };
       sellers.push(seller);
     }
+    if (!persistDatabase(res)) return;
     res.json(seller);
   });
 
@@ -353,6 +402,7 @@ async function startServer() {
     products = products.filter(product => product.sellerId !== id);
     reviews = reviews.filter(review => !sellerProductIds.includes(review.productId));
 
+    if (!persistDatabase(res)) return;
     res.json({
       deletedSellerId: id,
       deletedProductIds: sellerProductIds
@@ -404,6 +454,7 @@ async function startServer() {
       };
       products.push(product);
     }
+    if (!persistDatabase(res)) return;
     res.json(product);
   });
 
@@ -411,6 +462,7 @@ async function startServer() {
   app.delete("/api/products/:id", (req, res) => {
     const id = req.params.id;
     products = products.filter(p => p.id !== id);
+    if (!persistDatabase(res)) return;
     res.json({ success: true, id });
   });
 
@@ -446,6 +498,7 @@ async function startServer() {
       prod.reviewsCount = prodReviews.length;
     }
 
+    if (!persistDatabase(res)) return;
     res.json(newReview);
   });
 
@@ -495,6 +548,7 @@ async function startServer() {
     };
 
     orders.push(newOrder);
+    if (!persistDatabase(res)) return;
     res.json(newOrder);
   });
 
@@ -510,6 +564,7 @@ async function startServer() {
     const order = orders.find(o => o.id === id);
     if (order) {
       order.status = status;
+      if (!persistDatabase(res)) return;
       res.json(order);
     } else {
       res.status(404).json({ error: "Order not found" });
